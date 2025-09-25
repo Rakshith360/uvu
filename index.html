@@ -32,9 +32,104 @@
     };
   
     // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
+    const app = initializeApp(firebaseConfig):
     const auth = getAuth(app);
     const db = getFirestore(app);
+
+     import { 
+  doc, setDoc, getDoc, collection, addDoc, getDocs 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+// 🔹 Save user profile
+async function saveUserProfile(user) {
+  if (!user) return;
+  const userRef = doc(db, "users", user.email);
+  await setDoc(userRef, {
+    profile: {
+      name: document.getElementById("userName").value || "",
+      phone: document.getElementById("userPhoneNumber").value || "",
+      language: localStorage.getItem("language") || "en",
+      email: user.email
+    }
+  }, { merge: true });
+}
+
+// 🔹 Save work log
+async function saveWorkLog(user, logData) {
+  if (!user) return;
+  const logsRef = collection(db, "users", user.email, "workLogs");
+  await addDoc(logsRef, logData);
+}
+
+// 🔹 Load profile when user logs in
+async function loadUserProfile(user) {
+  if (!user) return;
+  const userRef = doc(db, "users", user.email);
+  const snap = await getDoc(userRef);
+  if (snap.exists()) {
+    const data = snap.data().profile || {};
+    document.getElementById("userName").value = data.name || "";
+    document.getElementById("userPhoneNumber").value = data.phone || "";
+    if (data.language) setLanguage(data.language);
+  }
+}
+
+// 🔹 Load work logs
+async function loadWorkLogs(user) {
+  if (!user) return;
+  const logsRef = collection(db, "users", user.email, "workLogs");
+  const snap = await getDocs(logsRef);
+  const logsContainer = document.getElementById("logsContainer");
+  logsContainer.innerHTML = "";
+  snap.forEach(docSnap => {
+    const log = docSnap.data();
+    const div = document.createElement("div");
+    div.className = "p-3 bg-gray-100 rounded";
+    div.textContent = `${log.workDate} - Earnings: ₹${log.totalEarnings}`;
+    logsContainer.appendChild(div);
+  });
+}
+
+// 🔹 Modify your saveCombinedData
+async function saveCombinedData() {
+  const user = auth.currentUser;
+  if (!user) {
+    showMessage("Please login first", "error");
+    return;
+  }
+
+  const logData = {
+    workDate: document.getElementById("workDate").value,
+    startTime: document.getElementById("startTime").value,
+    endTime: document.getElementById("endTime").value,
+    hourlyRate: parseFloat(document.getElementById("ratePerHour").value) || 0,
+    numberOfTrips: parseInt(document.getElementById("numberOfTrips").value) || 0,
+    costPerTrip: parseFloat(document.getElementById("costPerTrip").value) || 0,
+    notes: document.getElementById("noteContent").value,
+    totalHours: document.getElementById("hourlyTotalTime").textContent,
+    totalEarnings: document.getElementById("combinedTotalEarnings").textContent,
+    gpsDistance: document.getElementById("distance-display").textContent
+  };
+
+  await saveWorkLog(user, logData);
+  await saveUserProfile(user);
+  showMessage("Data saved & synced!", "success");
+}
+
+// 🔹 Auth listener with sync
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    await loadUserProfile(user);
+    await loadWorkLogs(user);
+    document.getElementById("mainApp").classList.remove("hidden");
+    document.getElementById("loginSection").classList.add("hidden");
+  } else {
+    document.getElementById("mainApp").classList.add("hidden");
+    document.getElementById("loginSection").classList.remove("hidden");
+  }
+});
+
     
 
     window.auth = auth;
@@ -980,7 +1075,7 @@
   </div>
 
 
-  <script type="module">
+  <script>
     // --- AUTHENTICATION LOGIC ---
     function showLoadingView() {
         document.getElementById('loadingSection').classList.remove('hidden');
@@ -998,100 +1093,7 @@
         document.getElementById('languageSection').classList.add('hidden');
         document.getElementById('mainApp').classList.add('hidden');
     }
-    import { 
-  doc, setDoc, getDoc, collection, addDoc, getDocs 
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-// 🔹 Save user profile
-async function saveUserProfile(user) {
-  if (!user) return;
-  const userRef = doc(db, "users", user.email);
-  await setDoc(userRef, {
-    profile: {
-      name: document.getElementById("userName").value || "",
-      phone: document.getElementById("userPhoneNumber").value || "",
-      language: localStorage.getItem("language") || "en",
-      email: user.email
-    }
-  }, { merge: true });
-}
-
-// 🔹 Save work log
-async function saveWorkLog(user, logData) {
-  if (!user) return;
-  const logsRef = collection(db, "users", user.email, "workLogs");
-  await addDoc(logsRef, logData);
-}
-
-// 🔹 Load profile when user logs in
-async function loadUserProfile(user) {
-  if (!user) return;
-  const userRef = doc(db, "users", user.email);
-  const snap = await getDoc(userRef);
-  if (snap.exists()) {
-    const data = snap.data().profile || {};
-    document.getElementById("userName").value = data.name || "";
-    document.getElementById("userPhoneNumber").value = data.phone || "";
-    if (data.language) setLanguage(data.language);
-  }
-}
-
-// 🔹 Load work logs
-async function loadWorkLogs(user) {
-  if (!user) return;
-  const logsRef = collection(db, "users", user.email, "workLogs");
-  const snap = await getDocs(logsRef);
-  const logsContainer = document.getElementById("logsContainer");
-  logsContainer.innerHTML = "";
-  snap.forEach(docSnap => {
-    const log = docSnap.data();
-    const div = document.createElement("div");
-    div.className = "p-3 bg-gray-100 rounded";
-    div.textContent = `${log.workDate} - Earnings: ₹${log.totalEarnings}`;
-    logsContainer.appendChild(div);
-  });
-}
-
-// 🔹 Modify your saveCombinedData
-async function saveCombinedData() {
-  const user = auth.currentUser;
-  if (!user) {
-    showMessage("Please login first", "error");
-    return;
-  }
-
-  const logData = {
-    workDate: document.getElementById("workDate").value,
-    startTime: document.getElementById("startTime").value,
-    endTime: document.getElementById("endTime").value,
-    hourlyRate: parseFloat(document.getElementById("ratePerHour").value) || 0,
-    numberOfTrips: parseInt(document.getElementById("numberOfTrips").value) || 0,
-    costPerTrip: parseFloat(document.getElementById("costPerTrip").value) || 0,
-    notes: document.getElementById("noteContent").value,
-    totalHours: document.getElementById("hourlyTotalTime").textContent,
-    totalEarnings: document.getElementById("combinedTotalEarnings").textContent,
-    gpsDistance: document.getElementById("distance-display").textContent
-  };
-
-  await saveWorkLog(user, logData);
-  await saveUserProfile(user);
-  showMessage("Data saved & synced!", "success");
-}
-
-// 🔹 Auth listener with sync
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    await loadUserProfile(user);
-    await loadWorkLogs(user);
-    document.getElementById("mainApp").classList.remove("hidden");
-    document.getElementById("loginSection").classList.add("hidden");
-  } else {
-    document.getElementById("mainApp").classList.add("hidden");
-    document.getElementById("loginSection").classList.remove("hidden");
-  }
-});
-
+   
     // Function to toggle between login and sign-up views
     function toggleAuthView() {
         document.getElementById('loginSection').classList.toggle('hidden');
